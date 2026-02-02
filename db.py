@@ -157,10 +157,8 @@ class Role(BaseModel):
     name = TextField()
 
 class User(BaseModel):
-    id_user = AutoField()
-    last_name = TextField()
-    first_name = TextField()
-    middle_name = TextField()
+    id = AutoField()
+    username = TextField()
     password = TextField()
 
     def hash_password(self,password):
@@ -664,10 +662,10 @@ def test():
     role2 = Role.create(name="Оператор")
     role3 = Role.create(name='пользователь')
 
-    user1 = User.create(last_name="юзер",first_name = "юзер",middle_name = "1",email = "1",phone = "1",role = role1)
-    user2 = User.create(last_name="юзер",first_name = "юзер",middle_name = "2",email = "2",phone = "2",role = role2)
-    user3 = User.create(last_name="юзер",first_name = "юзер",middle_name = "3",email = "3",phone = "3",role = role3)
-    user4 = User.create(last_name="юзер",first_name = "юзер",middle_name = "4",email = "4",phone = "4",role = role3)
+    user1 = User.create(username = "1",email = "1",phone = "1",role = role1, password='123')
+    user2 = User.create(username = "2",email = "2",phone = "2",role = role2, password='123')
+    user3 = User.create(username = "3",email = "3",phone = "3",role = role3, password='123')
+    user4 = User.create(username = "4",email = "4",phone = "4",role = role3, password='123')
 
     checks1 = Checks.create(id_apparat=ven_app_1,date_check='2000-01-01',description='капут',problem='чип',employee=employee_1)
     checks2 = Checks.create(id_apparat=ven_app_2,date_check='2000-01-01',description='капут',problem='чип',employee=employee_2)

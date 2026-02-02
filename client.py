@@ -4,7 +4,7 @@ import PIL.Image
 import PIL.ImageTk
 from db import Vendigovskiy_apparats, Status_apparate, Action, \
     Firma, Model, Type_work, TimeZone,Client, Ingener, Manager, \
-        Operator, Priority, Product_matrix, Type_apparat_pay,Casse,Counrty_proizv,Employee
+        Operator, Priority, Product_matrix, Type_apparat_pay,Casse,Counrty_proizv,Employee, User, Role
 import datetime
 from tkinter.messagebox import showinfo,showerror,showwarning
 
@@ -16,35 +16,88 @@ root.geometry('1920x1080')
 frame_for_hat = Frame(root,background='white',width=1920-150,height=50)
 frame_for_hat.place(x=0,y=0)
 
-frame_auth = Button(root,background='white' ,width=150)
-frame_auth.place(x=1920-150+2,y=0,height=50)
+frame_auth = Button(root,background='white')
+frame_auth.place(x=1920-150+2,y=0,width=150,height=50)
 
 select = False
 
-def auth(event):
-    global select, auth_canvas
-    if not select:
 
-        auth_canvas = Canvas(root, width=150,height=200,background="white")
-        auth_canvas.place(x=1920-150+2,y=60)
+def check():
+    try:
+        f = open('data.txt')
+    except FileNotFoundError:
+        return None
+    return f.readline().split(",")
 
-        but_profile = Button(auth_canvas,background="white",text="Мой профиль")
-        but_profile.place(x=0,y=25,width=150,height=50)
+def auth(*args):
+    with open('data.txt','w') as f:
+        f.write(','.join(str(i) for i in args))
 
-        but_session = Button(auth_canvas,background="white",text="Мои сессии")
-        but_session.place(x=0,y=75,width=150,height=50)
 
-        but_exit = Button(auth_canvas,background="white",text="Выход")
-        but_exit.place(x=0,y=125,width=150,height=50)
+def person_menu(event):
 
-        select = True
+    global select, auth_canvas, frame_auth
+    data = check()
+
+    if data:
+        frame_auth.config(text=data[0])
+        if not select:
+
+            auth_canvas = Canvas(root, width=150,height=200,background="white")
+            auth_canvas.place(x=1920-150+2,y=60)
+
+
+            def my_profile(event):
+                nonlocal data
+                
+
+            but_profile = Button(auth_canvas,background="white",text="Мой профиль")
+            but_profile.place(x=0,y=25,width=150,height=50)
+            but_profile.bind("<Button-1>", my_profile)
+            but_session = Button(auth_canvas,background="white",text="Мои сессии")
+            but_session.place(x=0,y=75,width=150,height=50)
+
+            but_exit = Button(auth_canvas,background="white",text="Выход")
+            but_exit.place(x=0,y=125,width=150,height=50)
+
+            select = True
+        else:
+            auth_canvas.destroy()
+            select = False
     else:
-        auth_canvas.destroy()
-        select = False
-        
+        win = Canvas(root, width=150,height=200,background="white")
+        win.place(x=1920//4+400,y=500)
+        name_win = ttk.Entry(win)
+        name_win.place(x=30,y=30,width=100,height=20)
+        email_win = ttk.Entry(win)
+        email_win.place(x=30,y=50,width=100,height=20)
+        phone_win = ttk.Entry(win) 
+        phone_win.place(x=30,y=70,width=100,height=20)
+        role_win = ttk.Entry(win)
+        role_win.place(x=30,y=90,width=100,height=20)
+        pass_win = ttk.Entry(win) 
+        pass_win.place(x=30,y=110,width=100,height=20)
+        but_reg = Button(win,text='Авторизироваться')
+        but_reg.place(x=30,y=150)
+        def reg(event):
+            data_reg = [name_win.get(),email_win.get(),phone_win.get(),
+                        role_win.get(),pass_win.get()]
+            role_name = Role.get(Role.name == data_reg[3])
+            with open('data.txt','w') as f:
+                f.write(','.join(str(i) for i in data_reg))
+                User.create(username=data_reg[0],
+                            email=data_reg[1],
+                            phone=data_reg[2],
+                            role=role_name,
+                            password=data_reg[4])
+                showinfo(title="Регистрация",message='Успешно доабвлен')
+            win.destroy()
+            frame_auth['text'] = data[0]
+        but_reg.bind('<Button-1>',reg)
 
 
-frame_auth.bind("<Button-1>",auth)
+
+frame_auth.bind("<Button-1>",person_menu)
 
 frame_left_side = Frame(root,background='#142733',width=1920//4,height=1080-50)
 frame_left_side.place(x=0, y=50)

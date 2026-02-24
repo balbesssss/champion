@@ -2,11 +2,11 @@ from tkinter import *
 from tkinter import ttk
 import PIL.Image
 import PIL.ImageTk
-from db import Vendigovskiy_apparats, Status_apparate, Action, \
-    Firma, Model, Type_work, TimeZone,Client, Ingener, Manager, \
-        Operator, Priority, Product_matrix, Type_apparat_pay,Casse,Counrty_proizv,Employee, User, Role
+from db import *
 import datetime
-from tkinter.messagebox import showinfo,showerror,showwarning
+from tkinter.messagebox import showinfo,showerror
+from peewee import PeeweeException 
+import os, requests
 
 
 
@@ -19,8 +19,10 @@ frame_for_hat.place(x=0,y=0)
 frame_auth = Button(root,background='white')
 frame_auth.place(x=1920-150+2,y=0,width=150,height=50)
 
-select = False
-
+SELECT_AUTH = False
+SELECT_DET_OTH = False
+SELECT_YCHET = False
+SELECT_ADMINISTR = False
 
 def check():
     try:
@@ -29,19 +31,20 @@ def check():
         return None
     return f.readline().split(",")
 
+
 def auth(*args):
-    with open('data.txt','w') as f:
+    with open('data.txt','w',encoding='utf-8') as f:
         f.write(','.join(str(i) for i in args))
 
 
 def person_menu(event):
 
-    global select, auth_canvas, frame_auth
+    global SELECT_AUTH, auth_canvas, frame_auth, win
     data = check()
 
     if data:
-        frame_auth.config(text=data[0])
-        if not select:
+        frame_auth['text']=f'{data[0]}\n{data[3]}'
+        if not SELECT_AUTH:
 
             auth_canvas = Canvas(root, width=150,height=200,background="white")
             auth_canvas.place(x=1920-150+2,y=60)
@@ -49,52 +52,77 @@ def person_menu(event):
 
             def my_profile(event):
                 nonlocal data
-                
+                print(data)
 
+            def my_session(event):
+                pass
+
+            def logout(event):
+                global SELECT_AUTH, auth_canvas
+                nonlocal data
+                path = 'C:\session_chmpion\sesseion main\session 1\data.txt'
+                os.remove(path)
+                showinfo(title="Выход",message='Вы вышли из системы')
+                frame_auth['text']='Зарегистрироваться'
+                del data
+                SELECT_AUTH = True
+                auth_canvas.place_forget()
+
+                
             but_profile = Button(auth_canvas,background="white",text="Мой профиль")
             but_profile.place(x=0,y=25,width=150,height=50)
             but_profile.bind("<Button-1>", my_profile)
             but_session = Button(auth_canvas,background="white",text="Мои сессии")
             but_session.place(x=0,y=75,width=150,height=50)
+            but_session.bind('<Button-1>',my_session)
 
             but_exit = Button(auth_canvas,background="white",text="Выход")
             but_exit.place(x=0,y=125,width=150,height=50)
+            but_exit.bind('<Button-1>',logout)
 
-            select = True
+            SELECT_AUTH = True
         else:
             auth_canvas.destroy()
-            select = False
+            SELECT_AUTH = False
     else:
-        win = Canvas(root, width=150,height=200,background="white")
-        win.place(x=1920//4+400,y=500)
-        name_win = ttk.Entry(win)
-        name_win.place(x=30,y=30,width=100,height=20)
-        email_win = ttk.Entry(win)
-        email_win.place(x=30,y=50,width=100,height=20)
-        phone_win = ttk.Entry(win) 
-        phone_win.place(x=30,y=70,width=100,height=20)
-        role_win = ttk.Entry(win)
-        role_win.place(x=30,y=90,width=100,height=20)
-        pass_win = ttk.Entry(win) 
-        pass_win.place(x=30,y=110,width=100,height=20)
-        but_reg = Button(win,text='Авторизироваться')
-        but_reg.place(x=30,y=150)
-        def reg(event):
-            data_reg = [name_win.get(),email_win.get(),phone_win.get(),
-                        role_win.get(),pass_win.get()]
-            role_name = Role.get(Role.name == data_reg[3])
-            with open('data.txt','w') as f:
-                f.write(','.join(str(i) for i in data_reg))
-                User.create(username=data_reg[0],
-                            email=data_reg[1],
-                            phone=data_reg[2],
-                            role=role_name,
-                            password=data_reg[4])
-                showinfo(title="Регистрация",message='Успешно доабвлен')
+        if not SELECT_AUTH:
+            win = Canvas(root, width=150,height=200,background="white")
+            win.place(x=1920//4+400,y=500)
+            name_win = ttk.Entry(win)
+            name_win.place(x=30,y=30,width=100,height=20)
+            email_win = ttk.Entry(win)
+            email_win.place(x=30,y=50,width=100,height=20)
+            phone_win = ttk.Entry(win) 
+            phone_win.place(x=30,y=70,width=100,height=20)
+            role_win = ttk.Entry(win)
+            role_win.place(x=30,y=90,width=100,height=20)
+            pass_win = ttk.Entry(win) 
+            pass_win.place(x=30,y=110,width=100,height=20)
+            but_reg = Button(win,text='Авторизироваться')
+            but_reg.place(x=30,y=150)
+            def reg(event):
+                data_reg = [name_win.get(),email_win.get(),phone_win.get(),
+                            role_win.get(),pass_win.get()]
+                role_name = Role.get(Role.name == data_reg[3])
+                with open('data.txt','w') as f:
+                    try:
+                        user = User(username=data_reg[0],
+                                email=data_reg[1],
+                                phone=data_reg[2],
+                                role=role_name)
+                        user.hash_password(data_reg[-1])
+                        user.save()
+                    except PeeweeException as e:
+                            showerror(title="Регистрация", message="Произошла ошибка") 
+                    f.write(','.join(str(i) for i in data_reg))
+                    showinfo(title="Регистрация",message='Успешно доабвлен')
+                win.destroy()
+                frame_auth['text'] = f'{data_reg[0]}\n{data_reg[3]}'
+            but_reg.bind('<Button-1>',reg)
+            SELECT_AUTH = False
+        else:
             win.destroy()
-            frame_auth['text'] = data[0]
-        but_reg.bind('<Button-1>',reg)
-
+            SELECT_AUTH = True
 
 
 frame_auth.bind("<Button-1>",person_menu)
@@ -124,7 +152,7 @@ class Pattenr:
         canvas_right_side.place(x=480,y=50,width=1920-480,height=1080-115)
         Label(canvas_right_side,text='ООО Торговые автоматы',background='#142733',foreground='white',font=(...,22),anchor=W).place(x=5,y=5,width=1920-480, height=50)
         Label(canvas_right_side,text='Личный кабинет. Главная',foreground='black',font=(...,22),anchor=W).place(x=45,y=100,width=350, height=50)
-        effe_network = Frame(canvas_right_side,background='white',width=(1920-480)//3-50, height=200)
+        effe_network = Canvas(canvas_right_side,background='white',width=(1920-480)//3-50, height=200)
         effe_network.place(x=70,y=200)
         working_apparat = 0
         all_ven_app = 0
@@ -137,6 +165,12 @@ class Pattenr:
 
         label_for_effe = Label(effe_network, text=f"Работающих автоматов {round(((working_apparat/all_ven_app)*100),2)}",foreground='black',background="white",font=(...,11))
         label_for_effe.place(x=120,y=170,width=225,height=15)
+        
+        diagram = Canvas(effe_network,background='white',width=(1920-480)//3-50,height=110)
+        diagram.place(x=0,y=55)
+        diagram.create_oval(20,10,400,250,fill='green')
+
+        diagram.create_line(215,110,10,100,width=2)
 
         Label(effe_network,text="Эффективность сети",foreground='black',font=(...,18),anchor=W).place(x=5,y=5,width=(1920-480)//3-65, height=50)
 
@@ -206,6 +240,245 @@ class Pattenr:
 
         Label(news,text="Новости",foreground='black',font=(...,18),anchor=W).place(x=5,y=5,width=(1920-480)//3-65, height=50)
 
+    def monitor_ta():
+        global tree
+        canvas_right_side = Canvas(root)
+        canvas_right_side.place(x=480,y=50,width=1920-480,height=1080-115)
+        Label(canvas_right_side,text='ООО Торговые автоматы',background='#142733',foreground='white',font=(...,22),anchor=W).place(x=5,y=5,width=1920-480, height=50)
+        canvas_monitor = Canvas(canvas_right_side,background='white')
+        canvas_monitor.place(x=20,y=70,width=(1920-480)-50,height=1000-145)
+        canvas_monitor.create_line(0,2,(1920-480)-50,2,fill='blue')
+        canvas_monitor.create_line(0,3,(1920-480)-50,3,fill='blue')
+        canvas_monitor.create_line(0,4,(1920-480)-50,4,fill='blue')
+        frame_under_label = Frame(canvas_monitor)
+        frame_under_label.place(x=0,y=5,width=(1920-480)-50,height=150)
+        Label(frame_under_label,text='Монитор торговых автоматов',foreground='blue',bg='#F7F7F7',font=(...,20)).place(x=20,y=10)
+
+        Label(frame_under_label,text='Общее состояние').place(x=20,y=60)
+        
+        state_red = False
+        state_green = False
+        state_blue = False
+
+        def switch_red():
+            nonlocal state_red,red
+            if not state_red:
+                state_red = not state_red
+                red['background'] = '#7B001C'
+            else:
+                state_red = not state_red
+                red['background'] = 'red'
+
+
+        def switch_green():
+            nonlocal state_green,green
+            if not state_green:
+                state_green = not state_green
+                green['background'] = '#1E5945'
+            else:
+                state_green = not state_green
+                green['background'] = 'green'
+
+        def switch_blue():
+            nonlocal state_blue,blue
+            if not state_blue:
+                state_blue = not state_blue
+                blue['background'] = '#000067'
+            else:
+                state_blue = not state_blue
+                blue['background'] = 'blue'
+        
+        def get_red_state():
+            return state_red
+
+        def get_green_state():
+            return state_green
+
+        def get_blue_state():
+            return state_blue
+
+        green = Button(frame_under_label,background='green',command=switch_green)
+        green.place(x=23,y=80,width=35,height=25)
+
+        red = Button(frame_under_label,background='red',command=switch_red)
+        red.place(x=23+35,y=80,width=35,height=25)
+
+        blue = Button(frame_under_label,background='blue',command=switch_blue)
+        blue.place(x=23+70,y=80,width=35,height=25)
+
+        Label(frame_under_label,text='Подключение').place(x=150,y=60)
+
+        type_1_but = Button(frame_under_label,background='blue')
+        type_1_but.place(x=150,y=80,width=35,height=25)
+        type_2_but = Button(frame_under_label,background='blue')
+        type_2_but.place(x=150+35,y=80,width=35,height=25)
+        type_3_but = Button(frame_under_label,background='blue')
+        type_3_but.place(x=150+70,y=80,width=35,height=25)
+        type_4_but = Button(frame_under_label,background='blue')
+        type_4_but.place(x=150+35+70,y=80,width=35,height=25)
+
+        Label(frame_under_label,text='Дополнительные статусы').place(x=310,y=60)
+
+        status_1_but = Button(frame_under_label,background='red')
+        status_1_but.place(x=310,y=80,width=35,height=25)
+        status_2_but = Button(frame_under_label,background='red')
+        status_2_but.place(x=100+35+210,y=80,width=35,height=25)
+        status_3_but = Button(frame_under_label,background='blue')
+        status_3_but.place(x=100+35+210+35,y=80,width=35,height=25)
+        status_4_but = Button(frame_under_label,background='blue')
+        status_4_but.place(x=100+35+210+70,y=80,width=35,height=25)
+        status_5_but = Button(frame_under_label,background='blue')
+        status_5_but.place(x=100+35+210+35+70,y=80,width=35,height=25)
+        status_6_but = Button(frame_under_label,background='blue')
+        status_6_but.place(x=100+35+210+140,y=80,width=35,height=25)
+        status_7_but = Button(frame_under_label,background='blue')
+        status_7_but.place(x=100+35+210+140+35,y=80,width=35,height=25)
+        status_8_but = Button(frame_under_label,background='blue')
+        status_8_but.place(x=100+35+210+210,y=80,width=35,height=25)
+        canvas_for_tree = Canvas(canvas_monitor,background='white')
+        canvas_for_tree.place(x=0,y=152,height=1080-115-150,width=1920-480)
+
+        def draw_tree_monitor(states: list=[False,False,False], count=None,filter=None):
+
+            status_names = []
+
+            if states[0]:
+                status_names.append(Status_apparate.get(Status_apparate.name == 'рабоатает'))
+            if states[1]:
+                status_names.append(Status_apparate.get(Status_apparate.name == 'вышел из строя'))
+            if states[2]:
+                status_names.append(Status_apparate.get(Status_apparate.name == 'в ремонте'))
+        
+            data_for_treeview = []
+            
+
+            for appar in Vendigovskiy_apparats.select().where(Vendigovskiy_apparats.status.in_(status_names)):
+                operator_name = appar.phone_operator.__data__['name_op']
+                operator_time = appar.phone_operator.__data__['time_sv']
+                operator_money = appar.phone_operator.__data__['money']
+                sv9z=f'{operator_name}\n{operator_time}\n{operator_money}'
+                pereferia_data = ''
+                for i in appar.pereferia.__data__.values():
+                    if i == True:
+                        pereferia_data+='1 '
+                    elif i == False:
+                        pereferia_data+='0 '
+                    else:
+                        pereferia_data+='-1 '
+                
+                total_cash = 0
+                last_event = ""
+                
+                for ap in Bill.select():
+                    if appar.id == ap.id_apparat.id:
+                        total_cash += ap.total_price
+
+                        if ap.date:
+                            last_event = ap.date
+                
+                apparat_info = f"{appar.id} - \"{appar.name}\"\n{appar.model.name}\n{appar.location}\n{appar}"
+                download_info = f"общая {appar.download_all}\n миим {appar.download_min}"
+                money_info = f"{total_cash} р."
+                events_info = f"{last_event}" if last_event else "нет данных"
+                equipment_info = pereferia_data
+                info_field = "MDB" 
+                additional_info = "112 / 247"  
+        
+                data_for_treeview.append((
+                    len(data_for_treeview) + 1,
+                    apparat_info,
+                    sv9z,
+                    download_info,
+                    money_info,
+                    events_info,
+                    equipment_info,
+                    info_field,
+                    additional_info
+                ))
+                        
+            if not data_for_treeview:
+                showinfo(title="Монитор ТА",message='Данных не обнаружено')
+                tree.place_forget()
+            columns = ('ID','Торговый автомат','Связь','Загрузка','Денежные средства','Событие','Оборудование','Информация',"Доп")
+            
+            tree = ttk.Treeview(canvas_for_tree,columns=columns, show="headings")
+            tree.place(x=0,y=0,height=1080-115-200-50,width=1920-480-70)
+            
+
+            def sort(col, reverse):
+                l = [(tree.set(k, col), k) for k in tree.get_children("")]
+                l.sort(reverse=reverse)
+                for index,  (_, k) in enumerate(l):
+                    tree.move(k, "", index)
+                tree.heading(col, command=lambda: sort(col, not reverse))
+
+            tree.heading("ID", text="ID", command=lambda: sort(0, False))
+            tree.column("ID",width=10)
+            tree.heading("Торговый автомат", text="Торговый автомат", command=lambda: sort(1, False))
+            tree.column("Торговый автомат",width=130)
+            tree.heading("Связь", text="Связь", command=lambda: sort(2, False))
+            tree.column("Связь",width=55)
+            tree.heading("Загрузка", text="Загрузка", command=lambda: sort(3, False))
+            tree.column("Загрузка",width=55)
+            tree.heading("Денежные средства", text="Денежные средства", command=lambda: sort(4, False))
+            tree.column("Денежные средства",width=100)
+            tree.heading("Событие", text="Событие", command=lambda: sort(5, False))
+            tree.column("Событие",width=90)
+            tree.heading("Оборудование", text="Оборудование", command=lambda: sort(6, False))
+            tree.column("Оборудование",width=130)
+            tree.heading("Информация", text="Информация", command=lambda: sort(7, False))
+            tree.column("Информация",width=110)
+            tree.heading("Доп", text="Доп", command=lambda: sort(7, False))
+            tree.column("Доп",width=110)
+
+            if filter:
+                av = []
+                for i in range(len(data_for_treeview)):
+                    if filter.lower() in data_for_treeview[i][1].lower():
+                        av.append(data_for_treeview[i])
+                    else:
+                        continue
+                data_for_treeview = av[:]
+            
+            data_for_treeview = data_for_treeview[:count]
+
+            s = ttk.Style()
+            s.configure('Treeview', rowheight=80) 
+
+
+            for a in data_for_treeview:
+                tree.insert('',END,values=a)
+            scrollbar = ttk.Scrollbar(canvas_for_tree,orient=VERTICAL, command=tree.yview)
+            tree.configure(yscroll=scrollbar.set)
+            scrollbar.place(x=1920-480-70, y=0, height=1080-115-200, width=20)
+
+        draw_tree_monitor(states=[True,True,True])
+
+        def claim_filter():
+            states = get_green_state(),get_red_state(),get_blue_state()
+            
+            draw_tree_monitor(states=states)
+
+        buttomn_claim = Button(frame_under_label,text='Применить', 
+                               background='#42AAFF',command=claim_filter)
+        buttomn_claim.place(x=23,y=115)
+
+        def reset_filter():
+            nonlocal state_blue,state_green,state_red
+            state_blue=True
+            switch_blue()
+            state_green=True
+            switch_green()
+            state_red=True
+            switch_red()
+
+        buttomn_reset = Button(frame_under_label,text='Сброс', background='white',command=reset_filter)
+        buttomn_reset.place(x=103,y=115)
+        Label(frame_under_label,text='Сортировка').place(x=100+35+210+210+50,y=60)
+        status_combobox = ttk.Combobox(frame_under_label,values=['хз','хз'])
+        status_combobox.place(x=100+35+210+210+50,y=80,height=25)
+        
+
     def admin():
         canvas_right_side = Canvas(root)
         canvas_right_side.place(x=480,y=50,width=1920-480,height=1080-115)
@@ -215,7 +488,6 @@ class Pattenr:
         canvas_admin.create_line(0,2,(1920-480)//4+(1920-480)//2,2,fill='blue')
         canvas_admin.create_line(0,3,(1920-480)//4+(1920-480)//2,3,fill='blue')
         canvas_admin.create_line(0,4,(1920-480)//4+(1920-480)//2,4,fill='blue')
-        Label(canvas_right_side,text='ООО Торговые автоматы',background='#142733',foreground='white',font=(...,22),anchor=W).place(x=5,y=5,width=1920-480, height=50)
         frame_under_label = Frame(canvas_admin,background='#F7F7F7')
         frame_under_label.place(x=0,y=5,width=(1920-480)//2-2,height=75)
         Label(frame_under_label,text='Торговые автоматы',foreground='blue',bg='#F7F7F7',font=(...,16)).place(x=20,y=10)
@@ -385,7 +657,7 @@ class Pattenr:
 
             Label(add_win,text='Приоритет обслуживания ',background='white',foreground='black').place(x=260,y=710)
 
-            priority_list = [pr.name for pr in Priority.select()]
+            priority_list = ['Высокий','Средний','Низкий']
 
             prior = ttk.Combobox(add_win,values=priority_list)
             prior.place(x=260,y=730,width=200,height=20)
@@ -419,7 +691,7 @@ class Pattenr:
                 operator_name = Operator.get(Operator.name==entrys['!combobox11'])
                 casse_name=Casse.create(id=entrys['!entry9'])
                 type_pay = Type_apparat_pay.create(mo=entrys['монетопр'],cu=entrys['купюроп'],be=entrys['б/н оплата'],qr=entrys['qr'])
-                pri = Priority.get(Priority.name==entrys['!combobox12'])
+                pri = entrys['!combobox12']
                 status = Status_apparate.get(Status_apparate.name == 'рабоатает')
                 
                 try:
@@ -485,8 +757,6 @@ class Pattenr:
 
         frame_hat = Frame(canvas_admin,bg='white',width=(1920-480)//2-2,height=75)
         frame_hat.place(x=0,y=80)
-
-        
 
         def claim_filter():
             global tree
@@ -583,9 +853,131 @@ class Pattenr:
 
         draw_tree()
 
+    def det_ochet():
 
+        global SELECT_DET_OTH, SELECT_YCHET, canvas_det_oth, button_ychet,button_admin, canvas_ychet
+
+        canvas_right = Canvas(root)
+        canvas_right.place(x=480,y=50,width=1920-480,height=1080-115)
+        Label(canvas_right,text='ООО Торговые автоматы',background='#142733',foreground='white',font=(...,22),anchor=W).place(x=5,y=5,width=1920-480, height=50)
+        canvas_det = Canvas(canvas_right,background='white')
+        canvas_det.place(x=20,y=70,width=(1920-480)-50,height=1000-145)
+        canvas_det.create_line(0,2,(1920-480)-50,2,fill='blue')
+        canvas_det.create_line(0,3,(1920-480)-50,3,fill='blue')
+        canvas_det.create_line(0,4,(1920-480)-50,4,fill='blue')
+        frame_under_label = Frame(canvas_det)
+        frame_under_label.place(x=0,y=5,width=(1920-480)-50,height=150)
+        Label(frame_under_label,text='Детальные отчеты',foreground='blue',bg='#F7F7F7',font=(...,20)).place(x=20,y=10)
+
+        def get_info():
+            info = requests.get('http://127.0.0.1:8000/vendigovsiy_apparat/3')
+            print(info.json()['__data__'])
+
+        if not SELECT_DET_OTH and not SELECT_YCHET:
+            try:
+                canvas_det_oth.place_forget()
+            except Exception:
+                canvas_det_oth = Canvas(root, width=478,height=200,background="#142733")
+                canvas_det_oth.place(x=-1,y=255)
+                button_1 = Button(canvas_det_oth,text='отчет 1',foreground='white', background='#142733',command=get_info)
+                button_1.place(x=15,y=15,width=200)
+                button_2 = Button(canvas_det_oth,text='отчет 2', foreground='white',background='#142733')
+                button_2.place(y=45+5+15,x=15,width=200)
+                button_3 = Button(canvas_det_oth,text='отчет 3', foreground='white',background='#142733')
+                button_3.place(y=46+45+5+15,x=15,width=200)
+                button_4 = Button(canvas_det_oth,text='отчет 4', foreground='white',background='#142733')
+                button_4.place(y=46+90+5+15,x=15,width=200)
+            SELECT_DET_OTH = True
+            button_ychet.place(x=5,y=205+200,width=1920//4,height=50)
+            button_admin.place(x=5,y=255+200,width=1920//4,height=50)
+        elif not SELECT_DET_OTH and SELECT_YCHET:
+            try:
+                canvas_det_oth.place_forget()
+            except Exception:
+                canvas_det_oth = Canvas(root, width=478,height=200,background="#142733")
+                canvas_det_oth.place(x=-1,y=255)
+                button_1 = Button(canvas_det_oth,text='отчет 1', foreground='white',background='#142733')
+                button_1.place(x=15,y=15,width=200)
+                button_2 = Button(canvas_det_oth,text='отчет 2',foreground='white', background='#142733')
+                button_2.place(y=40+15,x=15,width=200)
+                button_3 = Button(canvas_det_oth,text='отчет 3',foreground='white', background='#142733')
+                button_3.place(y=40+45+15,x=15,width=200)
+                button_4 = Button(canvas_det_oth,text='отчет 4',foreground='white', background='#142733')
+                button_4.place(y=40+90+15,x=15,width=200)
+            canvas_ychet.place(x=-1,y=255+50+200)
+            SELECT_DET_OTH = True
+            button_admin.place(x=5,y=255+200+200,width=1920//4,height=50)
+            button_ychet.place(x=5,y=205+200)
+        elif SELECT_DET_OTH and not SELECT_YCHET:
+            button_ychet.place(x=5,y=205,width=1920//4,height=50)
+            button_admin.place(x=5,y=255,width=1920//4,height=50)
+            canvas_det_oth.destroy()
+            SELECT_DET_OTH = False
+        elif SELECT_DET_OTH and SELECT_YCHET:
+            SELECT_DET_OTH = False
+            button_ychet.place(x=5,y=205,width=1920//4,height=50)
+            button_admin.place(x=5,y=255+200,width=1920//4,height=50)
+            canvas_ychet.place(x=5,y=305)
+            canvas_det_oth.destroy()
+
+    def ychet():
+        global SELECT_YCHET,button_admin,SELECT_DET_OTH, canvas_ychet
+
+        canvas_right = Canvas(root)
+        canvas_right.place(x=480,y=50,width=1920-480,height=1080-115)
+        Label(canvas_right,text='ООО Торговые автоматы',background='#142733',foreground='white',font=(...,22),anchor=W).place(x=5,y=5,width=1920-480, height=50)
+        canvas_ych = Canvas(canvas_right,background='white')
+        canvas_ych.place(x=20,y=70,width=(1920-480)-50,height=1000-145)
+        canvas_ych.create_line(0,2,(1920-480)-50,2,fill='blue')
+        canvas_ych.create_line(0,3,(1920-480)-50,3,fill='blue')
+        canvas_ych.create_line(0,4,(1920-480)-50,4,fill='blue')
+        frame_under_label = Frame(canvas_ych)
+        frame_under_label.place(x=0,y=5,width=(1920-480)-50,height=150)
+        Label(frame_under_label,text='Учет ТМЦ',foreground='blue',bg='#F7F7F7',font=(...,20)).place(x=20,y=10)
+
+        if not SELECT_YCHET and not SELECT_DET_OTH:
+            try:
+                canvas_ychet.place_forget()
+            except Exception:
+                canvas_ychet = Canvas(root, width=478,height=200,background="#142733")
+                canvas_ychet.place(x=-1,y=255+50)
+                buttony_1 = Button(canvas_ychet,text='учет 1',foreground='white', background='#142733')
+                buttony_1.place(x=15,y=15,width=200)
+                buttony_2 = Button(canvas_ychet,text='учет 2', foreground='white',background='#142733')
+                buttony_2.place(y=45+5+15,x=15,width=200)
+                buttony_3 = Button(canvas_ychet,text='учет 3', foreground='white',background='#142733')
+                buttony_3.place(y=46+45+5+15,x=15,width=200)
+                buttony_4 = Button(canvas_ychet,text='учет 4', foreground='white',background='#142733')
+                buttony_4.place(y=46+90+5+15,x=15,width=200)
+            else:
+                pass
+            SELECT_YCHET = not SELECT_YCHET
+            button_admin.place(x=5,y=255+200,width=1920//4,height=50)
+        elif not SELECT_YCHET and SELECT_DET_OTH:
+            try:
+                canvas_ychet.place_forget()
+            except Exception:
+                canvas_ychet = Canvas(root, width=478,height=200,background="#142733")
+                canvas_ychet.place(x=-1,y=255+50+200)
+                buttony_1 = Button(canvas_ychet,text='учет 1',foreground='white', background='#142733')
+                buttony_1.place(x=15,y=15,width=200)
+                buttony_2 = Button(canvas_ychet,text='учет 2', foreground='white',background='#142733')
+                buttony_2.place(y=45+5+15,x=15,width=200)
+                buttony_3 = Button(canvas_ychet,text='учет 3', foreground='white',background='#142733')
+                buttony_3.place(y=46+45+5+15,x=15,width=200)
+                buttony_4 = Button(canvas_ychet,text='учет 4', foreground='white',background='#142733')
+                buttony_4.place(y=46+90+5+15,x=15,width=200)
+            SELECT_YCHET = not SELECT_YCHET
+            button_admin.place(x=5,y=255+200+200,width=1920//4,height=50)
+        elif SELECT_YCHET and not SELECT_DET_OTH:
+            SELECT_YCHET = not SELECT_YCHET
+            button_admin.place(x=5,y=255,width=1920//4,height=50)
+            canvas_ychet.destroy()
+        elif SELECT_YCHET and SELECT_DET_OTH:
+            SELECT_YCHET = not SELECT_YCHET
+            button_admin.place(x=5,y=255+200,width=1920//4,height=50)
+            canvas_ychet.destroy()
         
-
 Pattenr.main()
 
 img_mon = PIL.Image.open('i.png')
@@ -602,11 +994,12 @@ photo_det = PIL.ImageTk.PhotoImage(img_lupa)
 button_det_ot = Button(frame_left_side,image=photo_mon,text="Детальные отчеты",background='#142733',compound=LEFT,foreground="White",font=(...,22),anchor="w")
 button_det_ot.place(x=5,y=155,width=1920//4,height=50)
 
-button_det_ot = Button(frame_left_side,image=photo_mon,text="Учет ТМЦ",background='#142733',compound=LEFT,foreground="White",font=(...,22),anchor="w")
-button_det_ot.place(x=5,y=205,width=1920//4,height=50)
+button_ychet = Button(frame_left_side,image=photo_mon,text="Учет ТМЦ",background='#142733',compound=LEFT,foreground="White",font=(...,22),anchor="w")
+button_ychet.place(x=5,y=205,width=1920//4,height=50)
 
-button_det_ot = Button(frame_left_side,image=photo_mon,text="Администрирование",background='#142733',compound=LEFT,foreground="White",font=(...,22),anchor="w")
-button_det_ot.place(x=5,y=255,width=1920//4,height=50)
+button_admin = Button(frame_left_side,image=photo_mon,text="Администрирование",background='#142733',compound=LEFT,foreground="White",font=(...,22),anchor="w")
+button_admin.place(x=5,y=255,width=1920//4,height=50)
+
 
 def switch(event):
     global canvas_right_side
@@ -619,10 +1012,19 @@ def switch(event):
     button = event.widget.cget('text')
     if button == "Главная":
         Pattenr.main()
+    if button == 'Монитор ТА':
+        Pattenr.monitor_ta()
+    if button == "Детальные отчеты":
+        Pattenr.det_ochet()
+    if button == "Учет ТМЦ":
+        Pattenr.ychet()
     if button == "Администрирование":
         Pattenr.admin()
+    
 
 button_main.bind('<Button-1>',switch)
 button_mon_ta.bind('<Button-1>',switch)
 button_det_ot.bind('<Button-1>',switch)
+button_admin.bind('<Button-1>',switch)
+button_ychet.bind('<Button-1>',switch)
 root.mainloop()
